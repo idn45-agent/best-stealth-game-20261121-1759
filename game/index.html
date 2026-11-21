@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lumen Heist — a quiet stealth game</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #0b0e16; color: #e8ecf5; font-family: sans-serif; }
+  #wrap { width: 960px; margin: 0 auto; }
+  #hud { display: flex; gap: 18px; align-items: center; height: 40px; padding: 0 8px; font-size: 14px; background: #141828; border-bottom: 1px solid #2a3049; }
+  #hud-level { font-weight: bold; color: #ffe9a8; }
+  #hud-goal { margin-left: auto; color: #9fb4d8; }
+  #hud-alert { font-weight: bold; }
+  #game { display: block; width: 960px; height: 608px; touch-action: none; cursor: crosshair; }
+  #help { padding: 6px 8px; font-size: 13px; color: #9fb4d8; background: #10131f; }
+  #status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div id="hud">
+    <span id="hud-level"></span>
+    <span id="hud-loot"></span>
+    <span id="hud-lives"></span>
+    <span id="hud-pebbles"></span>
+    <span id="hud-alert"></span>
+    <span id="hud-goal"></span>
+  </div>
+  <canvas id="game" aria-label="Lumen Heist: sneak past the watchmen, steal the Moon Opal, reach the exit unseen"></canvas>
+  <div id="help">WASD / arrows move · Shift run (loud) · C sneak · Click throw a pebble · P pause · Enter start</div>
+</div>
+<p id="status" role="status" aria-live="polite"></p>
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
