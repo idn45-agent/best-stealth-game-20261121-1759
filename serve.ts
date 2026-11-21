@@ -1,4 +1,5 @@
-// Serves game/ at http://localhost:8080 for local play-testing.
+// Serves game/ at http://localhost:8080 for local play-testing
+// (or the port given with --port).
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { extname, join } from 'node:path';
@@ -7,6 +8,10 @@ import { fileURLToPath } from 'node:url';
 const here = fileURLToPath(new URL('.', import.meta.url));
 const root = join(here, 'game');
 const types = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.png': 'image/png', '.jpg': 'image/jpeg' };
+const args = process.argv.slice(2);
+const portIndex = args.indexOf('--port');
+const requested = portIndex === -1 ? 8080 : Number(args[portIndex + 1]);
+const port = Number.isInteger(requested) && requested > 0 && requested < 65536 ? requested : 8080;
 
 createServer(async (req, res) => {
   try {
@@ -18,4 +23,4 @@ createServer(async (req, res) => {
     res.writeHead(404);
     res.end('not found');
   }
-}).listen(8080, () => console.log('Lumen Heist at http://localhost:8080'));
+}).listen(port, () => console.log(`Lumen Heist at http://localhost:${port}`));

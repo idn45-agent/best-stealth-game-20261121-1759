@@ -14,7 +14,7 @@ Entry untuk bounty make.fun ["Make the best stealth game"](https://make.fun/boun
 - **Klik mouse** — lempar kerikil ke arah kursor (penjaga menyelidiki bunyinya)
 - **P** — jeda · **Enter** — mulai / ulangi
 
-Sistem deteksi: meter penjaga naik saat kamu terlihat di dalam cone-nya — lebih cepat dari dekat, lebih lambat di bayangan, tidak naik sama sekali saat kamu di dalam semak. Di atas ambang, penjaga curiga dan menoleh ke arahmu; penuh berarti alarm dan ia mengejarmu. Tertangkap tiga kali berarti permainan berakhir.
+Sistem deteksi: meter penjaga naik saat kamu terlihat di dalam cone-nya — lebih cepat dari dekat, lebih lambat di bayangan, tidak naik sama sekali saat kamu di dalam semak. Di atas ambang, penjaga curiga dan menoleh ke arahmu; penuh berarti alarm dan ia mengejarmu. Langkah kaki penjaga yang dekat terdengar, jadi kamu bisa mendengar patroli yang datang tanpa melihatnya. Tertangkap tiga kali berarti permainan berakhir.
 
 ## Run
 

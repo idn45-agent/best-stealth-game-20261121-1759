@@ -38,6 +38,7 @@ function announce(message) {
 function playEventSounds() {
   for (const event of world.events) {
     if (event.type === 'step') audio.step(event.loud);
+    if (event.type === 'guard-step') audio.guardStep();
     if (event.type === 'coin') audio.coin();
     if (event.type === 'relic') audio.relic();
     if (event.type === 'alarm') audio.alarm();

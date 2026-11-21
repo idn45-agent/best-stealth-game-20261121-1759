@@ -27,6 +27,7 @@ export function createGuard(def) {
     chaseTimer: 0,
     lastSeen: null,
     stepPhase: 0,
+    stepAcc: 0,
   };
 }
 
@@ -61,7 +62,7 @@ function turnToward(guard, targetAngle, dt) {
   guard.angle += Math.max(-turn, Math.min(turn, diff));
 }
 
-function walkToward(guard, grid, tx, ty, speed, dt) {
+function walkToward(guard, grid, tx, ty, speed, dt, world) {
   const dx = tx - guard.x;
   const dy = ty - guard.y;
   const dist = Math.hypot(dx, dy);
@@ -72,6 +73,15 @@ function walkToward(guard, grid, tx, ty, speed, dt) {
   guard.y = moved.y;
   turnToward(guard, Math.atan2(dy, dx), dt);
   guard.stepPhase += (step / 26) * Math.PI;
+  // Footsteps: a soft tread only when the guard walks near the thief, so the
+  // player can hear a patrol coming without seeing it.
+  guard.stepAcc += step;
+  if (guard.stepAcc > 46) {
+    guard.stepAcc = 0;
+    if (world && world.player && Math.hypot(guard.x - world.player.x, guard.y - world.player.y) < 250) {
+      world.events.push({ type: 'guard-step', x: guard.x, y: guard.y });
+    }
+  }
   return dist <= step + 1;
 }
 
@@ -97,7 +107,7 @@ export function updateGuard(guard, dt, world) {
     const seen = guard.lastSeen ?? { x: player.x, y: player.y };
     if (rate > 0) guard.chaseTimer = 4;
     else guard.chaseTimer -= dt;
-    walkToward(guard, grid, seen.x, seen.y, GUARD_CHASE_SPEED, dt);
+    walkToward(guard, grid, seen.x, seen.y, GUARD_CHASE_SPEED, dt, world);
     if (guard.chaseTimer <= 0) {
       guard.state = GUARD_CALM;
       guard.meter = 40;
@@ -117,7 +127,7 @@ export function updateGuard(guard, dt, world) {
   }
 
   if (guard.state === GUARD_INVESTIGATE && guard.investigate) {
-    if (walkToward(guard, grid, guard.investigate.x, guard.investigate.y, GUARD_SPEED * 1.35, dt)) {
+    if (walkToward(guard, grid, guard.investigate.x, guard.investigate.y, GUARD_SPEED * 1.35, dt, world)) {
       guard.investigateTimer -= dt;
       turnToward(guard, guard.angle + 1.4 * dt, dt);
       if (guard.investigateTimer <= 0) {
@@ -140,7 +150,7 @@ export function updateGuard(guard, dt, world) {
     turnToward(guard, guard.angle + 0.9 * dt, dt);
     return;
   }
-  if (walkToward(guard, grid, target.x, target.y, GUARD_SPEED, dt)) {
+  if (walkToward(guard, grid, target.x, target.y, GUARD_SPEED, dt, world)) {
     guard.waypointIndex = (guard.waypointIndex + 1) % guard.waypoints.length;
     guard.pause = 1.1;
   }

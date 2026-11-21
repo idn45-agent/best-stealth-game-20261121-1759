@@ -55,6 +55,7 @@ export function createAudio() {
   return {
     unlock() { ensure(); if (context && context.state === 'suspended') context.resume().catch(() => {}); },
     step(loud) { if (loud) noiseBurst(0.09, 0.5, 700); else noiseBurst(0.05, 0.22, 500); },
+    guardStep() { noiseBurst(0.07, 0.14, 260); },
     coin() { tone(880, 0.12, 'sine', 0.5); tone(1320, 0.18, 'sine', 0.4); },
     relic() { tone(523, 0.16, 'triangle', 0.5); tone(659, 0.16, 'triangle', 0.5); tone(784, 0.3, 'triangle', 0.5); },
     alarm() { tone(220, 0.22, 'square', 0.4, 330); tone(330, 0.22, 'square', 0.4, 220); },
