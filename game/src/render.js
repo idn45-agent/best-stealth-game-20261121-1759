@@ -24,9 +24,14 @@ function rayLength(grid, x, y, angle) {
 }
 
 function drawCone(ctx, grid, guard) {
-  const rays = 26;
+  const rays = 44;
   const start = guard.angle - GUARD_VIEW_HALF_ANGLE;
   const end = guard.angle + GUARD_VIEW_HALF_ANGLE;
+  const base = CONE_COLORS[guard.state] ?? CONE_COLORS.calm;
+  const gradient = ctx.createRadialGradient(guard.x, guard.y, 8, guard.x, guard.y, GUARD_VIEW_RANGE);
+  gradient.addColorStop(0, base.replace(/[\d.]+\)$/, '0.42)'));
+  gradient.addColorStop(0.7, base);
+  gradient.addColorStop(1, base.replace(/[\d.]+\)$/, '0.06)'));
   ctx.beginPath();
   ctx.moveTo(guard.x, guard.y);
   for (let i = 0; i <= rays; i += 1) {
@@ -35,10 +40,10 @@ function drawCone(ctx, grid, guard) {
     ctx.lineTo(guard.x + Math.cos(angle) * len, guard.y + Math.sin(angle) * len);
   }
   ctx.closePath();
-  ctx.fillStyle = CONE_COLORS[guard.state] ?? CONE_COLORS.calm;
+  ctx.fillStyle = gradient;
   ctx.fill();
-  ctx.strokeStyle = 'rgba(255, 230, 140, 0.35)';
-  ctx.lineWidth = 1;
+  ctx.strokeStyle = 'rgba(255, 235, 150, 0.55)';
+  ctx.lineWidth = 1.5;
   ctx.stroke();
 }
 
@@ -46,11 +51,14 @@ function drawGuard(ctx, guard) {
   const bob = Math.sin(guard.stepPhase) * 1.5;
   ctx.save();
   ctx.translate(guard.x, guard.y + bob * 0.3);
-  // Body: watchman in a navy coat with a brass lantern.
-  ctx.fillStyle = '#2c3e63';
+  // Body: watchman in a bright steel-blue coat with a brass lantern.
+  ctx.fillStyle = '#3f66a8';
   ctx.beginPath();
-  ctx.arc(0, 0, 12, 0, Math.PI * 2);
+  ctx.arc(0, 0, 13, 0, Math.PI * 2);
   ctx.fill();
+  ctx.strokeStyle = '#bcd2ff';
+  ctx.lineWidth = 2;
+  ctx.stroke();
   ctx.fillStyle = '#d9a441';
   ctx.beginPath();
   ctx.arc(Math.cos(guard.angle) * 8, Math.sin(guard.angle) * 8, 4, 0, Math.PI * 2);
@@ -85,19 +93,22 @@ function drawPlayer(ctx, player, grid, time) {
   ctx.save();
   ctx.translate(player.x, player.y + bob * 0.3);
   ctx.globalAlpha = hidden ? 0.55 : 1;
-  // Cloak: a hooded thief in deep teal.
-  ctx.fillStyle = '#0f7d6b';
+  // Cloak: a hooded thief in bright teal, rimmed so they read at a glance.
+  ctx.fillStyle = '#14b89a';
   ctx.beginPath();
-  ctx.moveTo(0, -13);
-  ctx.lineTo(10, 9);
-  ctx.lineTo(-10, 9);
+  ctx.moveTo(0, -14);
+  ctx.lineTo(11, 10);
+  ctx.lineTo(-11, 10);
   ctx.closePath();
   ctx.fill();
+  ctx.strokeStyle = '#d8fff4';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
   ctx.fillStyle = '#f2e6c9';
   ctx.beginPath();
   ctx.arc(0, -3, 6, 0, Math.PI * 2);
   ctx.fill();
-  ctx.fillStyle = '#0f7d6b';
+  ctx.fillStyle = '#14b89a';
   ctx.beginPath();
   ctx.arc(0, -4, 6.5, Math.PI, Math.PI * 2);
   ctx.fill();
@@ -187,7 +198,7 @@ export function createRenderer(canvas) {
       ctx.fillStyle = 'rgba(255,255,255,0.55)';
       ctx.font = '12px sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText('locked — take the relic first', exit.x, exit.y + 30);
+      ctx.fillText('locked — take the relic first', exit.x, exit.y - 26);
     }
   }
 

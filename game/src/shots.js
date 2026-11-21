@@ -90,11 +90,19 @@ export function stageShot(name, world, stepWorld) {
   const idle = { up: false, down: false, left: false, right: false, run: false, sneak: false, throwPebble: false, throwX: 0, throwY: 0, pressed: new Set() };
   if (name === 'alarm') {
     // Walk the thief into the first guard's patrol lane and let the cone find them.
+    // Stop the moment the alarm breaks, so the frame shows the chase beginning.
     const guard = world.guards[0];
     const lane = guard.waypoints[1];
     world.player.x = lane.x;
     world.player.y = lane.y + 40;
-    for (let i = 0; i < 60 / SAMPLE; i += 1) stepWorld(world, idle, SAMPLE);
+    for (let i = 0; i < 60 / SAMPLE; i += 1) {
+      stepWorld(world, idle, SAMPLE);
+      if (world.guards.some((g) => g.state === 'alarm')) {
+        for (let j = 0; j < 24; j += 1) stepWorld(world, idle, SAMPLE);
+        break;
+      }
+      if (world.lives < 3) break;
+    }
     return { screen: 'play', best: 0 };
   }
   if (name === 'win') {
@@ -105,7 +113,7 @@ export function stageShot(name, world, stepWorld) {
     }
     return { screen: 'play', best: world.loot };
   }
-  const seconds = name === 'patrol' ? 9 : 16;
+  const seconds = name === 'patrol' ? 9 : 12;
   for (let i = 0; i < seconds / SAMPLE; i += 1) {
     const result = stepWorld(world, autopilot(world), SAMPLE);
     if (result & (1 | 2 | 4 | 8)) break;
