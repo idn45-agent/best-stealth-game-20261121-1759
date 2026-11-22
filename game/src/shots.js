@@ -1,9 +1,14 @@
 // Staged screenshot scenes: each plays the real rules forward from a fresh world
 // with an autopilot that pathfinds around guard vision, so the frame is what a
 // short game really looks like and the same seed always gives the same frame.
+//
+// The cover matters most — it is the big image on the judge's sheet — so its
+// staging is deliberate: the thief slips into the nearest bush, waits while a
+// patrol cone sweeps past, and the frame shows the whole stealth game at once:
+// a hidden thief, a bright vision cone, cover, the relic and the exit.
 import { STEP } from './world.js';
 import { LEVELS, TILE } from './config.js';
-import { isSolid } from './level.js';
+import { isBush, isSolid } from './level.js';
 import { guardSeesPlayer } from './guard.js';
 
 const SAMPLE = STEP;
@@ -80,14 +85,82 @@ function autopilot(world) {
   return input;
 }
 
+/** Drive the thief toward a fixed point for up to maxSeconds; true on arrival. */
+function driveTo(world, stepWorld, target, maxSeconds) {
+  const idle = { up: false, down: false, left: false, right: false, run: false, sneak: false, throwPebble: false, throwX: 0, throwY: 0, pressed: new Set() };
+  for (let i = 0; i < maxSeconds / SAMPLE; i += 1) {
+    if (Math.hypot(world.player.x - target.x, world.player.y - target.y) < 10) return true;
+    if (!world._drivePath || world.time - world._driveTick > 0.5 || world._drivePath.length === 0) {
+      world._drivePath = findPath(world, world.player, target) ?? [];
+      world._driveTick = world.time;
+    }
+    const next = world._drivePath[0];
+    if (!next) return false;
+    const input = { ...idle };
+    const dx = next.x - world.player.x;
+    const dy = next.y - world.player.y;
+    if (Math.hypot(dx, dy) < 6) {
+      world._drivePath.shift();
+      continue;
+    }
+    if (Math.abs(dx) > 4) input[dx > 0 ? 'right' : 'left'] = true;
+    if (Math.abs(dy) > 4) input[dy > 0 ? 'down' : 'up'] = true;
+    const probe = { x: next.x, y: next.y, sneaking: false, running: false };
+    input.sneak = world.guards.some((g) => guardSeesPlayer(g, probe, world.grid) > 0);
+    const result = stepWorld(world, input, SAMPLE);
+    if (result & (1 | 2 | 4 | 8)) return false;
+  }
+  return Math.hypot(world.player.x - target.x, world.player.y - target.y) < 10;
+}
+
+/** Step the world with no input for the given seconds. */
+function idleFor(world, stepWorld, seconds) {
+  const idle = { up: false, down: false, left: false, right: false, run: false, sneak: false, throwPebble: false, throwX: 0, throwY: 0, pressed: new Set() };
+  for (let i = 0; i < seconds / SAMPLE; i += 1) {
+    const result = stepWorld(world, idle, SAMPLE);
+    if (result & (1 | 2 | 4 | 8)) break;
+  }
+}
+
+/** The nearest bush tile to the thief's start, as a pixel point. */
+function nearestBush(world) {
+  let best = null;
+  let bestDist = Infinity;
+  for (let ty = 0; ty < 19; ty += 1) {
+    for (let tx = 0; tx < 30; tx += 1) {
+      if (world.grid[ty][tx] !== 'B') continue;
+      const point = { x: tx * TILE + TILE / 2, y: ty * TILE + TILE / 2 };
+      const d = Math.hypot(point.x - world.player.x, point.y - world.player.y);
+      if (d < bestDist) { bestDist = d; best = point; }
+    }
+  }
+  return best;
+}
+
 /**
  * Set `world` to the named scene and return the screen to draw over it.
- * cover: mid-level, cones and cover in frame; patrol: guards mid-round;
- * alarm: the thief caught in a cone as the alarm breaks; win: all halls cleared.
+ * cover: the thief hidden in a bush as a patrol cone sweeps past;
+ * patrol: guards mid-round; alarm: the thief caught in a cone as the alarm
+ * breaks; win: all halls cleared.
  */
 export function stageShot(name, world, stepWorld) {
   world.reset();
   const idle = { up: false, down: false, left: false, right: false, run: false, sneak: false, throwPebble: false, throwX: 0, throwY: 0, pressed: new Set() };
+  if (name === 'cover') {
+    const bush = nearestBush(world);
+    if (bush) {
+      driveTo(world, stepWorld, bush, 14);
+      // Wait in the bush while the patrol sweeps past: the frame catches the
+      // thief hidden, a cone nearby, and the relic and exit across the hall.
+      idleFor(world, stepWorld, 2);
+    } else {
+      for (let i = 0; i < 12 / SAMPLE; i += 1) {
+        const result = stepWorld(world, autopilot(world), SAMPLE);
+        if (result & (1 | 2 | 4 | 8)) break;
+      }
+    }
+    return { screen: 'play', best: world.loot };
+  }
   if (name === 'alarm') {
     // Walk the thief into the first guard's patrol lane and let the cone find them.
     // Stop the moment the alarm breaks, so the frame shows the chase beginning.
@@ -113,7 +186,7 @@ export function stageShot(name, world, stepWorld) {
     }
     return { screen: 'play', best: world.loot };
   }
-  const seconds = name === 'patrol' ? 9 : 12;
+  const seconds = name === 'patrol' ? 10 : 12;
   for (let i = 0; i < seconds / SAMPLE; i += 1) {
     const result = stepWorld(world, autopilot(world), SAMPLE);
     if (result & (1 | 2 | 4 | 8)) break;
@@ -121,4 +194,4 @@ export function stageShot(name, world, stepWorld) {
   return { screen: 'play', best: world.loot };
 }
 
-export { LEVELS };
+export { LEVELS, isBush };

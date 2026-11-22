@@ -1,7 +1,17 @@
 // Level layouts and tuning for Lumen Heist.
+//
 // Tiles: '#' wall, '.' floor, 'C' display case (blocks sight and movement),
 // 'B' shrub (hides the thief inside it), 's' shadow floor (detection is slow),
 // 'P' thief start, 'R' the relic, 'X' exit, 'L' loot coin.
+//
+// Tuning notes, learned from play-testing v1:
+// - Detection decays fast (DETECT_DECAY) so a thief who breaks line of sight
+//   gets a real chance to recover instead of being chased forever.
+// - A guard that only glimpsed the thief (meter in the suspicious band) walks
+//   over to look, searches, then goes back to patrol: a near miss raises the
+//   alarm without ending the run.
+// - One guard's alarm calls nearby watchmen over (GUARD_ALERT_RADIUS), so
+//   getting spotted in a crowd is worse than getting spotted alone.
 export const TILE = 32;
 export const COLS = 30;
 export const ROWS = 19;
@@ -13,15 +23,22 @@ export const PLAYER_SNEAK_SPEED = 68;
 export const PLAYER_RUN_SPEED = 196;
 export const GUARD_SPEED = 62;
 export const GUARD_CHASE_SPEED = 148;
-export const GUARD_VIEW_RANGE = 178;
-export const GUARD_VIEW_HALF_ANGLE = 0.61;
+export const GUARD_VIEW_RANGE = 186;
+export const GUARD_VIEW_HALF_ANGLE = 0.63;
 export const DETECT_BASE = 62;
 export const DETECT_FAR = 26;
-export const DETECT_DECAY = 34;
+export const DETECT_DECAY = 42;
 export const SUSPICIOUS_AT = 34;
+export const GUARD_ALERT_RADIUS = 280;
+export const GUARD_SEARCH_TIME = 2.5;
+export const GUARD_CHASE_MEMORY = 4;
 export const NOISE_RUN_RADIUS = 96;
 export const NOISE_PEBBLE_RADIUS = 118;
 export const PEBBLE_COUNT = 5;
+export const PEBBLE_COOLDOWN = 0.3;
+export const FOOTSTEP_TTL = 0.9;
+export const FOOTSTEP_SPACING = 46;
+export const LEVEL_INTRO_TIME = 3;
 export const LIVES = 3;
 
 export const LEVELS = [

@@ -12,6 +12,9 @@
   #hud-level { font-weight: bold; color: #ffe9a8; }
   #hud-goal { margin-left: auto; color: #9fb4d8; }
   #hud-alert { font-weight: bold; }
+  #detectbar { display: flex; gap: 8px; align-items: center; height: 14px; padding: 0 8px; font-size: 10px; letter-spacing: 1px; color: #9fb4d8; background: #10131f; border-bottom: 1px solid #2a3049; }
+  #detect-track { flex: 1; height: 6px; background: #232a3d; border-radius: 3px; overflow: hidden; }
+  #detect-fill { height: 100%; width: 0%; background: #37c978; }
   #game { display: block; width: 960px; height: 608px; touch-action: none; cursor: crosshair; }
   #help { padding: 6px 8px; font-size: 13px; color: #9fb4d8; background: #10131f; }
   #status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
@@ -27,8 +30,9 @@
     <span id="hud-alert"></span>
     <span id="hud-goal"></span>
   </div>
+  <div id="detectbar"><span>DETECTION</span><div id="detect-track"><div id="detect-fill"></div></div></div>
   <canvas id="game" aria-label="Lumen Heist: sneak past the watchmen, steal the Moon Opal, reach the exit unseen"></canvas>
-  <div id="help">WASD / arrows move · Shift run (loud) · C sneak · Click throw a pebble · P pause · Enter start</div>
+  <div id="help">WASD / arrows move · Shift run (loud) · C sneak · Move mouse to aim, click to throw a pebble · P pause · Enter start</div>
 </div>
 <p id="status" role="status" aria-live="polite"></p>
 <script type="module" src="./src/main.js"></script>

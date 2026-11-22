@@ -5,6 +5,11 @@
 // ?seed=N fixes the level layout. ?shot=cover|patrol|alarm|win (with &seed=N)
 // stages that scene instead of running the loop, paints it twice and sets
 // window.__shotReady for a screenshot.
+//
+// The HUD under the canvas is plain DOM: level name, loot, lives, pebbles,
+// the alert word (UNSEEN / SUSPICIOUS / ALARM) and a DETECTION bar that
+// follows the most suspicious guard, so the danger is readable without
+// looking at any single guard's meter.
 import { LEVELS } from './config.js';
 import { createRandom } from './random.js';
 import { createWorld, EVENT_CAUGHT, EVENT_GAME_OVER, EVENT_LEVEL_CLEAR, EVENT_WIN, STEP, stepWorld } from './world.js';
@@ -27,6 +32,8 @@ const hudLoot = document.getElementById('hud-loot');
 const hudLives = document.getElementById('hud-lives');
 const hudPebbles = document.getElementById('hud-pebbles');
 const hudGoal = document.getElementById('hud-goal');
+const hudAlert = document.getElementById('hud-alert');
+const detectFill = document.getElementById('detect-fill');
 const world = createWorld(createRandom(seed));
 const renderer = createRenderer(canvas);
 const audio = createAudio();
@@ -46,6 +53,7 @@ function playEventSounds() {
     if (event.type === 'throw') audio.pebble();
     if (event.type === 'pebble-land') audio.land();
     if (event.type === 'exit') audio.exit();
+    if (event.type === 'near-miss') audio.alarm();
   }
 }
 
@@ -56,12 +64,14 @@ function updateHud(screen) {
   hudLives.textContent = `♥`.repeat(world.lives) + `♡`.repeat(Math.max(0, 3 - world.lives));
   hudPebbles.textContent = `Pebbles ${world.player.pebbles}`;
   hudGoal.textContent = world.relic.taken ? 'Reach the green EXIT' : 'Steal the MOON OPAL';
-  document.getElementById('hud-alert').textContent = world.guards.some((g) => g.state === 'alarm')
-    ? 'ALARM'
-    : world.guards.some((g) => g.state === 'suspicious' || g.state === 'investigate') ? 'SUSPICIOUS' : 'UNSEEN';
-  document.getElementById('hud-alert').style.color = world.guards.some((g) => g.state === 'alarm')
-    ? '#ff5040'
-    : world.guards.some((g) => g.state === 'suspicious') ? '#ffb020' : '#7dffb0';
+  const alarmed = world.guards.some((g) => g.state === 'alarm');
+  const wary = world.guards.some((g) => g.state === 'suspicious' || g.state === 'investigate');
+  hudAlert.textContent = alarmed ? 'ALARM' : wary ? 'SUSPICIOUS' : 'UNSEEN';
+  hudAlert.style.color = alarmed ? '#ff5040' : wary ? '#ffb020' : '#7dffb0';
+  // DETECTION bar: the highest guard meter, green to amber to red.
+  const peak = world.alertPeak ?? 0;
+  detectFill.style.width = `${Math.round(peak)}%`;
+  detectFill.style.background = peak >= 100 ? '#ff5040' : peak >= 34 ? '#ffb020' : '#37c978';
 }
 
 function runShot(name) {
@@ -82,7 +92,6 @@ function runGame() {
   let screen = SCREEN_TITLE;
   let accumulator = 0;
   let last = performance.now();
-  let levelToast = 0;
 
   function startGame() {
     world.reset();
@@ -101,6 +110,11 @@ function runGame() {
     if (screen === SCREEN_TITLE && takePressed(input, ACTION_CONFIRM)) startGame();
     if ((screen === SCREEN_OVER || screen === SCREEN_WIN) && takePressed(input, ACTION_CONFIRM)) startGame();
     if (screen === SCREEN_PLAY) {
+      // The mouse aims the next pebble; hand the aim to the renderer.
+      if (input.aimMoved) {
+        world.aim = { x: input.aimX, y: input.aimY, t: world.time };
+        input.aimMoved = false;
+      }
       accumulator += elapsed;
       while (accumulator >= STEP) {
         const result = stepWorld(world, input, STEP);
@@ -113,7 +127,6 @@ function runGame() {
           screen = SCREEN_OVER;
           announce(`Caught. Game over. Loot ${world.loot}.`);
         } else if (result & EVENT_LEVEL_CLEAR) {
-          levelToast = 2.5;
           audio.exit();
           announce(`Hall cleared. ${LEVELS[world.levelIndex].name}.`);
         } else if (result & EVENT_CAUGHT) {
@@ -121,7 +134,6 @@ function runGame() {
         }
         accumulator -= STEP;
       }
-      if (levelToast > 0) levelToast -= elapsed;
     }
     updateHud(screen);
     renderer.draw(world, screen, { loot: world.loot }, world.time);

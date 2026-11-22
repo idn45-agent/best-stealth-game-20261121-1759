@@ -1,5 +1,14 @@
 // Game state: levels, win/lose, detection, loot and the fixed-step update.
-import { LEVELS, LIVES } from './config.js';
+//
+// The world owns everything the renderer and the HUD read: the grid, the
+// guards, the thief, the relic and the exit, plus the small traces a stealth
+// game needs to feel fair — fading footstep rings where a guard just walked,
+// the highest detection meter right now (the HUD's DETECTION bar), and run
+// statistics (near misses, alarms) the win screen can report.
+//
+// One step is 1/60 s. stepWorld returns a bitmask: EVENT_CAUGHT (a life
+// lost, same level again), EVENT_LEVEL_CLEAR, EVENT_WIN or EVENT_GAME_OVER.
+import { LEVELS, LEVEL_INTRO_TIME, LIVES } from './config.js';
 import { createGuard } from './guard.js';
 import { parseLevel } from './level.js';
 import { createPlayer, updatePebbles, updatePlayer } from './player.js';
@@ -20,6 +29,7 @@ export function createWorld(random) {
     time: 0,
     noise: null,
     pebbles: [],
+    footsteps: [],
     events: [],
     guards: [],
     player: null,
@@ -28,6 +38,10 @@ export function createWorld(random) {
     exit: null,
     levelLoot: [],
     caughtFlash: 0,
+    levelToast: 0,
+    alertPeak: 0,
+    danger: Infinity,
+    stats: { nearMiss: 0, alarms: 0 },
     loadLevel(index) {
       const def = LEVELS[index];
       const parsed = parseLevel(def);
@@ -38,14 +52,19 @@ export function createWorld(random) {
       this.player = createPlayer(parsed.start);
       this.guards = def.guards.map(createGuard);
       this.pebbles = [];
+      this.footsteps = [];
       this.noise = null;
       this.caughtFlash = 0;
+      // The level's name and hint ride across the top of the canvas briefly,
+      // so a screenshot always says which hall this is and what to do.
+      this.levelToast = LEVEL_INTRO_TIME;
     },
     reset() {
       this.levelIndex = 0;
       this.lives = LIVES;
       this.loot = 0;
       this.time = 0;
+      this.stats = { nearMiss: 0, alarms: 0 };
       this.loadLevel(0);
     },
   };
@@ -65,6 +84,7 @@ export function stepWorld(world, input, dt) {
   let result = 0;
   world.time += dt;
   world.events.length = 0;
+  world.levelToast = Math.max(0, world.levelToast - dt);
   updatePlayer(world.player, input, world.grid, dt, world);
   updatePebbles(world, dt);
   for (const guard of world.guards) updateGuard(guard, dt, world);
@@ -72,6 +92,11 @@ export function stepWorld(world, input, dt) {
     world.noise.ttl -= dt;
     if (world.noise.ttl <= 0) world.noise = null;
   }
+  // Footstep rings fade out and are capped, so the floor never fills up.
+  for (const step of world.footsteps) step.ttl -= dt;
+  world.footsteps = world.footsteps.filter((step) => step.ttl > 0).slice(-14);
+  // The HUD's DETECTION bar follows the most suspicious guard.
+  world.alertPeak = world.guards.reduce((peak, guard) => Math.max(peak, guard.meter), 0);
 
   // Loot pickup.
   for (const coin of world.levelLoot) {
