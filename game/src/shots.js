@@ -104,8 +104,11 @@ function autopilot(world) {
   }
   if (Math.abs(dx) > 4) input[dx > 0 ? 'right' : 'left'] = true;
   if (Math.abs(dy) > 4) input[dy > 0 ? 'down' : 'up'] = true;
-  // Sneak whenever a guard is close, not only when the next tile is risky.
-  input.sneak = world.guards.some((g) => Math.hypot(g.x - world.player.x, g.y - world.player.y) < 230);
+  // Sneak only when it matters — the next step is risky, or a cone is on
+  // the thief right now. Walking at full speed everywhere else keeps the
+  // run moving; sneaking near every guard halved the pace for nothing.
+  const me = { x: world.player.x, y: world.player.y, sneaking: false, running: false };
+  input.sneak = risky || world.guards.some((g) => guardSeesPlayer(g, me, world.grid) > 0);
   return input;
 }
 
@@ -180,10 +183,12 @@ function bushNearPatrol(world) {
 
 /** Wait in place until a guard's cone sweeps close to the thief, or the
  * time runs out: the cover frame catches the patrol passing the hidden
- * thief, not a quiet moment between rounds. */
+ * thief, not a quiet moment between rounds. The frame is only taken while
+ * no guard stands on the relic, so its label stays readable. */
 function waitForConeNear(world, stepWorld, maxSeconds) {
   const idle = { up: false, down: false, left: false, right: false, run: false, sneak: false, throwPebble: false, throwX: 0, throwY: 0, pressed: new Set() };
   for (let i = 0; i < maxSeconds / SAMPLE; i += 1) {
+    const relicClear = world.guards.every((g) => Math.hypot(g.x - world.relic.x, g.y - world.relic.y) > 70);
     const near = world.guards.some((guard) => {
       const d = Math.hypot(guard.x - world.player.x, guard.y - world.player.y);
       if (d > 240) return false;
@@ -192,7 +197,7 @@ function waitForConeNear(world, stepWorld, maxSeconds) {
       while (diff < -Math.PI) diff += Math.PI * 2;
       return Math.abs(diff) < 1.0;
     });
-    if (near) return;
+    if (near && relicClear) return;
     const result = stepWorld(world, idle, SAMPLE);
     if (result & (1 | 2 | 4 | 8)) return;
   }
