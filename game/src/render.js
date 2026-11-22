@@ -14,6 +14,10 @@
 //   hear, where a patrol has just been.
 // - The thief is big, bright teal with a white rim, and a leaf ring plus a
 //   HIDDEN tag when inside a bush — never lost against the floor again.
+// - A searching guard marks where it last glimpsed the thief with a pulsing
+//   "?" on the floor, so a near miss is visible even when the guard is not.
+// - The exit grows a pulsing green arrow once the relic is taken, so the
+//   way out reads at a glance in every screenshot.
 import { COLS, LEVELS, ROWS, TILE, VIEW_HEIGHT, VIEW_WIDTH, GUARD_VIEW_HALF_ANGLE, GUARD_VIEW_RANGE } from './config.js';
 import { TILE_BUSH, TILE_CASE, TILE_SHADOW, TILE_WALL, isBush, isSolid } from './level.js';
 
@@ -90,6 +94,30 @@ function drawPatrolPath(ctx, guard) {
   ctx.restore();
 }
 
+/** A pulsing mark where a searching guard last glimpsed the thief: the
+ * near miss, drawn on the floor, so the search reads even at judge size. */
+function drawLastSeen(ctx, guard, time) {
+  if (guard.state !== 'suspicious' && guard.state !== 'investigate' && guard.state !== 'alarm') return;
+  if (!guard.lastSeen) return;
+  const pulse = 0.6 + Math.sin(time * 5) * 0.4;
+  const color = guard.state === 'alarm' ? '#ff5040' : '#ffb020';
+  ctx.save();
+  ctx.globalAlpha = 0.55 + pulse * 0.45;
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(guard.lastSeen.x, guard.lastSeen.y, 12 + pulse * 3, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.font = 'bold 16px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = 'rgba(5, 8, 18, 0.9)';
+  ctx.strokeText('?', guard.lastSeen.x, guard.lastSeen.y + 6);
+  ctx.fillStyle = color;
+  ctx.fillText('?', guard.lastSeen.x, guard.lastSeen.y + 6);
+  ctx.restore();
+}
+
 function drawGuard(ctx, guard) {
   // Warm lantern glow pooling around the watchman.
   const glow = ctx.createRadialGradient(guard.x, guard.y, 4, guard.x, guard.y, 34);
@@ -149,7 +177,7 @@ function drawPlayer(ctx, player, time) {
   const bob = player.moving ? Math.sin(player.stepPhase) * 1.5 : 0;
   ctx.save();
   ctx.translate(player.x, player.y + bob * 0.3);
-  ctx.globalAlpha = player.hidden ? 0.6 : 1;
+  ctx.globalAlpha = player.hidden ? 0.75 : 1;
   // Cloak: a hooded thief in bright teal, rimmed so they read at a glance.
   ctx.fillStyle = '#12c9a5';
   ctx.beginPath();
@@ -301,6 +329,17 @@ export function createRenderer(canvas) {
     ctx.strokeStyle = relic.taken ? '#8dffb6' : '#5a6a5a';
     ctx.lineWidth = 2.5;
     ctx.strokeRect(-16, -16, 32, 32);
+    if (relic.taken) {
+      // A pulsing arrow over the open exit: the way out, at a glance.
+      const bobY = -28 + Math.sin(time * 3) * 3;
+      ctx.fillStyle = '#8dffb6';
+      ctx.beginPath();
+      ctx.moveTo(-8, bobY - 5);
+      ctx.lineTo(8, bobY - 5);
+      ctx.lineTo(0, bobY + 5);
+      ctx.closePath();
+      ctx.fill();
+    }
     ctx.restore();
     ctx.textBaseline = 'alphabetic';
     if (!relic.taken) {
@@ -479,6 +518,7 @@ export function createRenderer(canvas) {
     drawFootsteps(world);
     drawPebbles(world);
     for (const guard of world.guards) drawGuard(ctx, guard);
+    for (const guard of world.guards) drawLastSeen(ctx, guard, time);
     drawPlayer(ctx, world.player, time);
     drawAim(world, screen);
     // Soft moonlight pooling around the thief, so the eye finds them first.

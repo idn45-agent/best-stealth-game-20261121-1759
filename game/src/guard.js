@@ -4,8 +4,10 @@
 // A guard's day, in order:
 //   calm        — walk the waypoint loop, pausing to look around.
 //   suspicious  — glimpsed the thief: walk to where they were last seen,
-//                 look around, then go back to patrol. This is the near
-//                 miss: the alarm rises, the run does not end.
+//                 look around, check one more spot nearby, then go back
+//                 to patrol. This is the near miss: the alarm rises, the
+//                 run does not end, and the search is a pattern the thief
+//                 can learn — a guard that finds nothing gives up.
 //   alarm       — meter hit 100: chase the last seen spot, calling nearby
 //                 watchmen over. Lose the thief for a few seconds and the
 //                 guard drops to investigate, then patrols again.
@@ -19,7 +21,7 @@ import {
   GUARD_ALERT_RADIUS, GUARD_CHASE_MEMORY, GUARD_CHASE_SPEED, GUARD_SEARCH_TIME,
   GUARD_SPEED, GUARD_VIEW_HALF_ANGLE, GUARD_VIEW_RANGE, SUSPICIOUS_AT, TILE,
 } from './config.js';
-import { hasLineOfSight, isBush, isShadow, moveCircle, tileCenter } from './level.js';
+import { hasLineOfSight, isBush, isShadow, moveCircle, nearestWalkable, tileCenter } from './level.js';
 
 export const GUARD_CALM = 'calm';
 export const GUARD_SUSPICIOUS = 'suspicious';
@@ -42,6 +44,7 @@ export function createGuard(def) {
     investigateTimer: 0,
     chaseTimer: 0,
     lastSeen: null,
+    searchQueue: null,
     warned: false,
     stepPhase: 0,
     stepAcc: 0,
@@ -116,8 +119,29 @@ function resumePatrol(guard) {
   guard.meter = 0;
   guard.investigate = null;
   guard.lastSeen = null;
+  guard.searchQueue = null;
   guard.warned = false;
   guard.pause = 0.6;
+}
+
+/** The spots a suspicious guard checks, in order: where the thief was
+ * glimpsed, then a step toward the nearest cover — a thief who slipped
+ * into a bush is worth one more look before the guard gives up. */
+function searchPoints(guard, grid) {
+  const first = guard.lastSeen ? { ...guard.lastSeen } : { x: guard.x, y: guard.y };
+  const tx = Math.floor(first.x / TILE);
+  const ty = Math.floor(first.y / TILE);
+  const secondTile = nearestWalkable(grid, tx + 2, ty - 1);
+  return [first, tileCenter(secondTile.tx, secondTile.ty)];
+}
+
+/** Send a guard to search where the thief was glimpsed, then one more
+ * spot nearby, then back to patrol. One entry point for every route into
+ * suspicion, so a called-over watchman searches the same way. */
+function startSearch(guard, world) {
+  guard.state = GUARD_SUSPICIOUS;
+  guard.searchQueue = searchPoints(guard, world.grid);
+  guard.investigateTimer = GUARD_SEARCH_TIME;
 }
 
 /** A guard that just raised the alarm calls every calm watchman nearby over. */
@@ -125,10 +149,9 @@ function callForHelp(guard, world) {
   for (const other of world.guards) {
     if (other === guard || other.state !== GUARD_CALM) continue;
     if (Math.hypot(other.x - guard.x, other.y - guard.y) > GUARD_ALERT_RADIUS) continue;
-    other.state = GUARD_SUSPICIOUS;
     other.meter = Math.max(other.meter, SUSPICIOUS_AT);
     other.lastSeen = guard.lastSeen ? { ...guard.lastSeen } : { x: guard.x, y: guard.y };
-    other.investigateTimer = GUARD_SEARCH_TIME;
+    startSearch(other, world);
   }
 }
 
@@ -151,8 +174,7 @@ export function updateGuard(guard, dt, world) {
       world.events.push({ type: 'alarm', x: guard.x, y: guard.y });
       callForHelp(guard, world);
     } else if (guard.meter >= SUSPICIOUS_AT && guard.state === GUARD_CALM) {
-      guard.state = GUARD_SUSPICIOUS;
-      guard.investigateTimer = GUARD_SEARCH_TIME;
+      startSearch(guard, world);
     }
   } else {
     guard.meter = Math.max(0, guard.meter - DETECT_DECAY * dt);
@@ -193,12 +215,18 @@ export function updateGuard(guard, dt, world) {
   }
 
   if (guard.state === GUARD_SUSPICIOUS) {
-    // A near miss sends the guard to check where the thief was glimpsed.
-    if (guard.lastSeen) {
-      if (walkToward(guard, grid, guard.lastSeen.x, guard.lastSeen.y, GUARD_SPEED * 1.1, dt, world)) {
+    // A near miss sends the guard to check where the thief was glimpsed,
+    // look around, then check one more spot before giving up and patrolling.
+    const point = (guard.searchQueue && guard.searchQueue[0]) || guard.lastSeen;
+    if (point) {
+      if (walkToward(guard, grid, point.x, point.y, GUARD_SPEED * 1.1, dt, world)) {
         guard.investigateTimer -= dt;
         turnToward(guard, guard.angle + 1.1 * dt, dt);
-        if (guard.investigateTimer <= 0) resumePatrol(guard);
+        if (guard.investigateTimer <= 0) {
+          if (guard.searchQueue) guard.searchQueue.shift();
+          guard.investigateTimer = GUARD_SEARCH_TIME;
+          if (!guard.searchQueue || guard.searchQueue.length === 0) resumePatrol(guard);
+        }
       }
     } else {
       turnToward(guard, angleToward(guard, guard.x + 40, guard.y), dt);

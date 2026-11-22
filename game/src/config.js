@@ -4,7 +4,7 @@
 // 'B' shrub (hides the thief inside it), 's' shadow floor (detection is slow),
 // 'P' thief start, 'R' the relic, 'X' exit, 'L' loot coin.
 //
-// Tuning notes, learned from play-testing v1:
+// Tuning notes, learned from play-testing v1 and v2:
 // - Detection decays fast (DETECT_DECAY) so a thief who breaks line of sight
 //   gets a real chance to recover instead of being chased forever.
 // - A guard that only glimpsed the thief (meter in the suspicious band) walks
@@ -12,6 +12,9 @@
 //   alarm without ending the run.
 // - One guard's alarm calls nearby watchmen over (GUARD_ALERT_RADIUS), so
 //   getting spotted in a crowd is worse than getting spotted alone.
+// - v3: every hall now teaches the shadow rule in its first minutes — a dark
+//   patch sits on a patrol lane and another guards the relic approach — and
+//   each relic has a bush nearby, so the last stretch always offers cover.
 export const TILE = 32;
 export const COLS = 30;
 export const ROWS = 19;
@@ -44,11 +47,11 @@ export const LIVES = 3;
 export const LEVELS = [
   {
     name: 'I — The Quiet Gallery',
-    hint: 'Steal the Moon Opal, then slip out the green door. Bushes hide you; cases block sight.',
+    hint: 'Steal the Moon Opal, then slip out the green door. Bushes hide you; cases block sight; dark floor slows a guard’s gaze.',
     map: [
       '##############################',
       '#P....B......#......L........#',
-      '#............#...............#',
+      '#...ss.......#...............#',
       '#............#...............#',
       '#....C...C...................#',
       '#............#.......BC.C....#',
@@ -58,9 +61,9 @@ export const LEVELS = [
       '#####...######...#############',
       '#............#...............#',
       '#.....C......#...............#',
-      '#..B.........#...............#',
+      '#..B.........#....ss.........#',
       '#.L.......C..#......R...L....#',
-      '#.....................C......#',
+      '#....................BC......#',
       '#.....C......#...............#',
       '#............#...............#',
       '#....L....B..#.............X.#',
@@ -89,7 +92,7 @@ export const LEVELS = [
       '#............#...............#',
       '#............#..........B....#',
       '#....ssss....#...............#',
-      '#..B.........#.....sssR......#',
+      '#..B.........#.....sssR.B....#',
       '#.....C......#....C..........#',
       '#..L.............ssss...CL...#',
       '#....ssss....#...............#',
@@ -120,7 +123,7 @@ export const LEVELS = [
       '#............#...............#',
       '#............#....B..........#',
       '#..B....B....#...ssss...B....#',
-      '#.L...C......#...CR......L...#',
+      '#.L...C......#...CR..B...L...#',
       '#..B.....C..............C....#',
       '#.......B....#...ssss........#',
       '#..L.........#..........B....#',

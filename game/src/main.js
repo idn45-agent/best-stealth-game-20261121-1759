@@ -76,6 +76,8 @@ function updateHud(screen) {
 
 function runShot(name) {
   const scene = stageShot(name, world, stepWorld);
+  window.__shotScreen = scene.screen;
+  window.__shotLoot = world.loot;
   let painted = 0;
   function paint() {
     updateHud(SCREEN_PLAY);

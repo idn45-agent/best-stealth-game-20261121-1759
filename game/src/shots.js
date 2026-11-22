@@ -8,12 +8,15 @@
 // a hidden thief, a bright vision cone, cover, the relic and the exit.
 import { STEP } from './world.js';
 import { LEVELS, TILE } from './config.js';
-import { isBush, isSolid } from './level.js';
+import { isBush, isShadow, isSolid } from './level.js';
 import { guardSeesPlayer } from './guard.js';
 
 const SAMPLE = STEP;
 
-/** Breadth-first path over walkable tiles; danger tiles cost far more. */
+/** Breadth-first path over walkable tiles; danger tiles cost far more.
+ * Shadow and bush tiles are cheap — the autopilot prefers cover — and a
+ * loot coin on a safe tile is worth a small detour, so the run reads as a
+ * heist, not a sprint to the relic. */
 function findPath(world, from, to) {
   const { grid } = world;
   const startTx = Math.floor(from.x / TILE);
@@ -21,6 +24,9 @@ function findPath(world, from, to) {
   const goalTx = Math.floor(to.x / TILE);
   const goalTy = Math.floor(to.y / TILE);
   const key = (x, y) => y * 100 + x;
+  const lootTiles = new Set(
+    world.levelLoot.filter((coin) => !coin.taken).map((coin) => key(Math.floor(coin.x / TILE), Math.floor(coin.y / TILE))),
+  );
   const cost = new Map([[key(startTx, startTy), 0]]);
   const prev = new Map();
   const queue = [[startTx, startTy]];
@@ -41,7 +47,12 @@ function findPath(world, from, to) {
       const ny = cy + dy;
       if (nx < 0 || ny < 0 || nx >= 30 || ny >= 19) continue;
       if (isSolid(grid, nx * TILE + TILE / 2, ny * TILE + TILE / 2)) continue;
-      const stepCost = danger(nx, ny) ? 60 : 1;
+      let stepCost = 1;
+      if (danger(nx, ny)) stepCost = 60;
+      else {
+        if (isShadow(grid, nx * TILE + TILE / 2, ny * TILE + TILE / 2) || isBush(grid, nx * TILE + TILE / 2, ny * TILE + TILE / 2)) stepCost = 0.6;
+        if (lootTiles.has(key(nx, ny))) stepCost = 0.3;
+      }
       const next = cost.get(key(cx, cy)) + stepCost;
       if (!cost.has(key(nx, ny)) || next < cost.get(key(nx, ny))) {
         cost.set(key(nx, ny), next);
@@ -61,7 +72,10 @@ function findPath(world, from, to) {
   return path;
 }
 
-/** Input that follows a path toward the relic, then the exit. */
+/** Input that follows a path toward the relic, then the exit.
+ * Patience is part of the route: when the next step is inside a guard's
+ * cone right now, the thief waits for the patrol to pass instead of
+ * walking into it, and gives up waiting after a couple of seconds. */
 function autopilot(world) {
   const target = world.relic.taken ? world.exit : world.relic;
   if (!world._path || world._pathTick === undefined || world.time - world._pathTick > 0.5 || world._path.length === 0) {
@@ -71,6 +85,17 @@ function autopilot(world) {
   const input = { up: false, down: false, left: false, right: false, run: false, sneak: false, throwPebble: false, throwX: 0, throwY: 0, pressed: new Set() };
   const next = world._path[0];
   if (!next) return input;
+  const probe = { x: next.x, y: next.y, sneaking: false, running: false };
+  const risky = world.guards.some((g) => guardSeesPlayer(g, probe, world.grid) > 0);
+  if (risky) {
+    if (world._waitSince === undefined) world._waitSince = world.time;
+    if (world.time - world._waitSince < 2.5) {
+      input.sneak = true;
+      return input;
+    }
+  } else {
+    world._waitSince = undefined;
+  }
   const dx = next.x - world.player.x;
   const dy = next.y - world.player.y;
   if (Math.hypot(dx, dy) < 6) {
@@ -79,9 +104,8 @@ function autopilot(world) {
   }
   if (Math.abs(dx) > 4) input[dx > 0 ? 'right' : 'left'] = true;
   if (Math.abs(dy) > 4) input[dy > 0 ? 'down' : 'up'] = true;
-  const probe = { x: next.x, y: next.y, sneaking: false, running: false };
-  const risky = world.guards.some((g) => guardSeesPlayer(g, probe, world.grid) > 0);
-  input.sneak = risky;
+  // Sneak whenever a guard is close, not only when the next tile is risky.
+  input.sneak = world.guards.some((g) => Math.hypot(g.x - world.player.x, g.y - world.player.y) < 230);
   return input;
 }
 
@@ -96,6 +120,19 @@ function driveTo(world, stepWorld, target, maxSeconds) {
     }
     const next = world._drivePath[0];
     if (!next) return false;
+    // Same patience as the autopilot: wait out a cone on the next step.
+    const probe = { x: next.x, y: next.y, sneaking: false, running: false };
+    const risky = world.guards.some((g) => guardSeesPlayer(g, probe, world.grid) > 0);
+    if (risky) {
+      if (world._driveWaitSince === undefined) world._driveWaitSince = world.time;
+      if (world.time - world._driveWaitSince < 3) {
+        const result = stepWorld(world, { ...idle, sneak: true }, SAMPLE);
+        if (result & (1 | 2 | 4 | 8)) return false;
+        continue;
+      }
+    } else {
+      world._driveWaitSince = undefined;
+    }
     const input = { ...idle };
     const dx = next.x - world.player.x;
     const dy = next.y - world.player.y;
@@ -105,7 +142,6 @@ function driveTo(world, stepWorld, target, maxSeconds) {
     }
     if (Math.abs(dx) > 4) input[dx > 0 ? 'right' : 'left'] = true;
     if (Math.abs(dy) > 4) input[dy > 0 ? 'down' : 'up'] = true;
-    const probe = { x: next.x, y: next.y, sneaking: false, running: false };
     input.sneak = world.guards.some((g) => guardSeesPlayer(g, probe, world.grid) > 0);
     const result = stepWorld(world, input, SAMPLE);
     if (result & (1 | 2 | 4 | 8)) return false;
@@ -122,19 +158,44 @@ function idleFor(world, stepWorld, seconds) {
   }
 }
 
-/** The nearest bush tile to the thief's start, as a pixel point. */
-function nearestBush(world) {
+/** The bush closest to any guard's patrol route: hiding there, a cone
+ * sweeps past the thief instead of the frame showing an empty corner. */
+function bushNearPatrol(world) {
   let best = null;
   let bestDist = Infinity;
   for (let ty = 0; ty < 19; ty += 1) {
     for (let tx = 0; tx < 30; tx += 1) {
       if (world.grid[ty][tx] !== 'B') continue;
       const point = { x: tx * TILE + TILE / 2, y: ty * TILE + TILE / 2 };
-      const d = Math.hypot(point.x - world.player.x, point.y - world.player.y);
-      if (d < bestDist) { bestDist = d; best = point; }
+      for (const guard of world.guards) {
+        for (const wp of guard.waypoints) {
+          const d = Math.hypot(point.x - wp.x, point.y - wp.y);
+          if (d < bestDist) { bestDist = d; best = point; }
+        }
+      }
     }
   }
   return best;
+}
+
+/** Wait in place until a guard's cone sweeps close to the thief, or the
+ * time runs out: the cover frame catches the patrol passing the hidden
+ * thief, not a quiet moment between rounds. */
+function waitForConeNear(world, stepWorld, maxSeconds) {
+  const idle = { up: false, down: false, left: false, right: false, run: false, sneak: false, throwPebble: false, throwX: 0, throwY: 0, pressed: new Set() };
+  for (let i = 0; i < maxSeconds / SAMPLE; i += 1) {
+    const near = world.guards.some((guard) => {
+      const d = Math.hypot(guard.x - world.player.x, guard.y - world.player.y);
+      if (d > 240) return false;
+      let diff = Math.atan2(world.player.y - guard.y, world.player.x - guard.x) - guard.angle;
+      while (diff > Math.PI) diff -= Math.PI * 2;
+      while (diff < -Math.PI) diff += Math.PI * 2;
+      return Math.abs(diff) < 1.0;
+    });
+    if (near) return;
+    const result = stepWorld(world, idle, SAMPLE);
+    if (result & (1 | 2 | 4 | 8)) return;
+  }
 }
 
 /**
@@ -147,12 +208,12 @@ export function stageShot(name, world, stepWorld) {
   world.reset();
   const idle = { up: false, down: false, left: false, right: false, run: false, sneak: false, throwPebble: false, throwX: 0, throwY: 0, pressed: new Set() };
   if (name === 'cover') {
-    const bush = nearestBush(world);
+    const bush = bushNearPatrol(world);
     if (bush) {
       driveTo(world, stepWorld, bush, 14);
-      // Wait in the bush while the patrol sweeps past: the frame catches the
-      // thief hidden, a cone nearby, and the relic and exit across the hall.
-      idleFor(world, stepWorld, 2);
+      // Wait in the bush until a patrol cone sweeps past: the frame catches
+      // the thief hidden, a cone nearby, and the relic and exit across the hall.
+      waitForConeNear(world, stepWorld, 6);
     } else {
       for (let i = 0; i < 12 / SAMPLE; i += 1) {
         const result = stepWorld(world, autopilot(world), SAMPLE);
