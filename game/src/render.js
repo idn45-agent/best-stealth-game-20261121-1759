@@ -14,7 +14,7 @@
 //   hear, where a patrol has just been.
 // - The thief is big, bright teal with a white rim, and a leaf ring plus a
 //   HIDDEN tag when inside a bush — never lost against the floor again.
-import { COLS, ROWS, TILE, VIEW_HEIGHT, VIEW_WIDTH, GUARD_VIEW_HALF_ANGLE, GUARD_VIEW_RANGE } from './config.js';
+import { COLS, LEVELS, ROWS, TILE, VIEW_HEIGHT, VIEW_WIDTH, GUARD_VIEW_HALF_ANGLE, GUARD_VIEW_RANGE } from './config.js';
 import { TILE_BUSH, TILE_CASE, TILE_SHADOW, TILE_WALL, isBush, isSolid } from './level.js';
 
 export const SCREEN_TITLE = 'title';
@@ -182,7 +182,6 @@ function drawPlayer(ctx, player, time) {
     ctx.lineWidth = 3;
     ctx.strokeStyle = 'rgba(5, 8, 18, 0.9)';
     ctx.strokeText('HIDDEN', player.x, player.y - 26);
-    ctx.fillStyle = '#8cffa a';
     ctx.fillStyle = '#8cffaa';
     ctx.fillText('HIDDEN', player.x, player.y - 26);
   }
@@ -449,16 +448,9 @@ export function createRenderer(canvas) {
 
   function drawLevelBanner(world) {
     if (world.levelToast <= 0) return;
-    const level = { name: '', hint: '' };
-    // The banner names the hall; the world carries the level index.
-    const names = ['I — The Quiet Gallery', 'II — The Vault Hall', 'III — The Rooftop Garden'];
-    const hints = [
-      'Steal the Moon Opal, then slip out the green door.',
-      'Shadows slow a guard’s gaze. Walk, do not run, through the dark.',
-      'Five watchmen, one opal. Throw a pebble to pull a guard away.',
-    ];
-    level.name = names[world.levelIndex] ?? '';
-    level.hint = hints[world.levelIndex] ?? '';
+    // The banner names the hall; the level defs carry the name and hint.
+    const level = LEVELS[world.levelIndex];
+    if (!level) return;
     ctx.save();
     ctx.globalAlpha = Math.min(1, world.levelToast);
     ctx.fillStyle = 'rgba(5, 8, 18, 0.78)';

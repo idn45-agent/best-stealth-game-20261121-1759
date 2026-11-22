@@ -19,7 +19,7 @@ import {
   GUARD_ALERT_RADIUS, GUARD_CHASE_MEMORY, GUARD_CHASE_SPEED, GUARD_SEARCH_TIME,
   GUARD_SPEED, GUARD_VIEW_HALF_ANGLE, GUARD_VIEW_RANGE, SUSPICIOUS_AT, TILE,
 } from './config.js';
-import { hasLineOfSight, isBush, isShadow, moveCircle, nearestWalkable, tileCenter } from './level.js';
+import { hasLineOfSight, isBush, isShadow, moveCircle, tileCenter } from './level.js';
 
 export const GUARD_CALM = 'calm';
 export const GUARD_SUSPICIOUS = 'suspicious';
@@ -218,5 +218,3 @@ export function updateGuard(guard, dt, world) {
     guard.pause = 1.1;
   }
 }
-
-export { nearestWalkable };

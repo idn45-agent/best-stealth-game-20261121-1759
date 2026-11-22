@@ -162,19 +162,23 @@ export function stageShot(name, world, stepWorld) {
     return { screen: 'play', best: world.loot };
   }
   if (name === 'alarm') {
-    // Walk the thief into the first guard's patrol lane and let the cone find them.
-    // Stop the moment the alarm breaks, so the frame shows the chase beginning.
+    // Stand the thief just below the first guard's patrol lane and let the
+    // cone find them. Freeze the instant the alarm breaks — the frame then
+    // shows the chase beginning (red cone, "!", SPOTTED banner) instead of
+    // the catch itself, which used to reset the level before the shot.
     const guard = world.guards[0];
     const lane = guard.waypoints[1];
-    world.player.x = lane.x;
-    world.player.y = lane.y + 40;
-    for (let i = 0; i < 60 / SAMPLE; i += 1) {
-      stepWorld(world, idle, SAMPLE);
-      if (world.guards.some((g) => g.state === 'alarm')) {
-        for (let j = 0; j < 24; j += 1) stepWorld(world, idle, SAMPLE);
-        break;
+    for (const below of [40, 90]) {
+      world.reset();
+      world.player.x = lane.x;
+      world.player.y = lane.y + below;
+      let alarmed = false;
+      for (let i = 0; i < 60 / SAMPLE; i += 1) {
+        stepWorld(world, idle, SAMPLE);
+        if (world.guards.some((g) => g.state === 'alarm')) { alarmed = true; break; }
+        if (world.lives < 3) break;
       }
-      if (world.lives < 3) break;
+      if (alarmed && world.lives === 3) return { screen: 'play', best: 0 };
     }
     return { screen: 'play', best: 0 };
   }
